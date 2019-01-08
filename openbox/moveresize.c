@@ -367,7 +367,6 @@ void moveresize_end(gboolean cancel)
     /* dont edge warp after its ended */
     cancel_edge_warp();
 
-    frame_restore_handles (moveresize_client);
     moveresize_in_progress = FALSE;
     moveresize_client = NULL;
 }

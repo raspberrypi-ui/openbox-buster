@@ -52,6 +52,7 @@ struct _RrTheme {
     gint menu_sep_width;
     gint menu_sep_paddingx;
     gint menu_sep_paddingy;
+    gint corner_radius;
     /* these ones are calculated, not set directly by the theme file */
     gint win_font_height;
     gint menu_title_font_height;
@@ -183,6 +184,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *theme,
                     RrFont *active_window_font, RrFont *inactive_window_font,
                     RrFont *menu_title_font, RrFont *menu_item_font,
                     RrFont *active_osd_font, RrFont *inactive_osd_font);
+void RrThemeColOverride (RrTheme *theme, RrColor *title_color, RrColor *text_color);
 void RrThemeFree(RrTheme *theme);
 
 G_END_DECLS

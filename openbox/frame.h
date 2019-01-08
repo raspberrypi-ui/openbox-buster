@@ -212,6 +212,7 @@ struct _ObFrame
     gint      cbwidth_r;     /* client border width */
     gint      cbwidth_b;     /* client border width */
     gint      outer;         /* width of outer border used for rounded corners */
+    gint      radius;        /* radius of rounded corners */
     gboolean  max_horz;      /* when maxed some decorations are hidden */
     gboolean  max_vert;      /* when maxed some decorations are hidden */
     gboolean  shaded;        /* decorations adjust when shaded */

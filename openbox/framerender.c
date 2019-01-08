@@ -42,9 +42,10 @@ void framerender_frame(ObFrame *self)
     if (!self->visible)
         return;
     self->need_render = FALSE;
+    frame_remove_handles (self->client);
 
     {
-        if ((self->decorations & OB_FRAME_DECOR_TITLEBAR) && !self->max_horz && !self->max_vert && config_theme_roundcorners)
+        if ((self->decorations & OB_FRAME_DECOR_TITLEBAR) && !self->max_horz && !self->max_vert && self->radius)
         {
             XGCValues xgcv;
             XWindowAttributes wd_att;
@@ -55,21 +56,21 @@ void framerender_frame(ObFrame *self)
             XFillRectangle (obt_display, mask, shape_gc, 0, 0, wd_att.width, wd_att.height);
             XSetForeground (obt_display, shape_gc, 0);
 
-            XFillRectangle (obt_display, mask, shape_gc, 0, 0, 2, 2);
-            XFillRectangle (obt_display, mask, shape_gc, 2, 0, 2, 1);
-            XFillRectangle (obt_display, mask, shape_gc, 0, 2, 1, 2);
+            XFillRectangle (obt_display, mask, shape_gc, 0, 0, self->radius, self->radius);
+            XFillRectangle (obt_display, mask, shape_gc, self->radius, 0, self->radius, 1);
+            XFillRectangle (obt_display, mask, shape_gc, 0, self->radius, 1, self->radius);
 
-            XFillRectangle (obt_display, mask, shape_gc, 0, wd_att.height - 2, 2, 2);
-            XFillRectangle (obt_display, mask, shape_gc, 2, wd_att.height - 1, 2, 1);
-            XFillRectangle (obt_display, mask, shape_gc, 0, wd_att.height - 4, 1, 2);
+            XFillRectangle (obt_display, mask, shape_gc, 0, wd_att.height - self->radius, self->radius, self->radius);
+            XFillRectangle (obt_display, mask, shape_gc, self->radius, wd_att.height - 1, self->radius, 1);
+            XFillRectangle (obt_display, mask, shape_gc, 0, wd_att.height - (self->radius * 2), 1, self->radius);
 
-            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 2, 0, 2, 2);
-            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 4, 0, 2, 1);
-            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 1, 2, 1, 2);
+            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - self->radius, 0, self->radius, self->radius);
+            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - (self->radius * 2), 0, self->radius, 1);
+            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 1, self->radius, 1, self->radius);
 
-            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 2, wd_att.height - 2, 2, 2);
-            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 4, wd_att.height - 1, 2, 1);
-            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 1, wd_att.height - 4, 1, 2);
+            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - self->radius, wd_att.height - self->radius, self->radius, self->radius);
+            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - (self->radius * 2), wd_att.height - 1, self->radius, 1);
+            XFillRectangle (obt_display, mask, shape_gc, wd_att.width - 1, wd_att.height - (self->radius * 2), 1, self->radius);
 
             XShapeCombineMask (obt_display, self->window, ShapeBounding, 0, 0, mask, ShapeSet);
             XFreePixmap (obt_display, mask);
@@ -458,6 +459,8 @@ void framerender_frame(ObFrame *self)
                     ob_rr_theme->grip_width, ob_rr_theme->handle_height);
         }
     }
+
+    if (self->focused) frame_restore_handles (self->client);
 
     XFlush(obt_display);
 }

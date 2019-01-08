@@ -271,6 +271,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_INT("menu.separator.padding.height", theme->menu_sep_paddingy, 0, 100, 3);
     READ_INT("window.client.padding.width", theme->cbwidthx, 0, 100, theme->paddingx);
     READ_INT("window.client.padding.height", theme->cbwidthy, 0, 100, theme->cbwidthx);
+    READ_INT("border.radius", theme->corner_radius, 0, 2, 0);
 
     /* load colors */
     READ_COLOR_("window.active.border.color",
@@ -1003,6 +1004,23 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     return theme;
 }
 
+void RrThemeColOverride (RrTheme *theme, RrColor *title_color, RrColor *text_color)
+{
+    if (theme->name && !strncmp (theme->name, "PiX", 3))
+    {
+        if (text_color)
+        {
+            RrColorFree (theme->title_focused_color);
+            theme->title_focused_color = RrColorCopy (text_color);
+        }
+        if (title_color)
+        {
+            RrColorFree (theme->a_focused_title->surface.primary);
+            theme->a_focused_title->surface.primary = RrColorCopy (title_color);
+        }
+    }
+}
+
 void RrThemeFree(RrTheme *theme)
 {
     if (theme) {
@@ -1244,6 +1262,12 @@ static gboolean read_mask(const RrInstance *inst, const gchar *path,
     guchar *b;
 
     s = g_build_filename(path, maskname, NULL);
+    // revert filenames for non-existent large icons to default
+    if (!g_file_test (s, G_FILE_TEST_EXISTS))
+    {
+        int l = strlen (s);
+        if (s[l - 6] == '_' && s[l - 5] == 'l') sprintf (s + l - 6, ".xbm");
+    }
     if (XReadBitmapFileData(s, &w, &h, &b, &hx, &hy) == BitmapSuccess) {
         ret = TRUE;
         *value = RrPixmapMaskNew(inst, w, h, (gchar*)b);
@@ -1471,14 +1495,20 @@ static void read_button_styles(XrmDatabase db, const RrInstance *inst,
 {
     gchar name[128], name2[128];
     gboolean userdef = TRUE;
+    gchar ext[3];
 
-    g_snprintf(name, 128, "%s.xbm", btnname);
+    if (theme->name && !strncmp (theme->name, "PiX", 3) && RrFontHeight (theme->win_font_focused, 0) >= 25)
+        sprintf (ext, "_l");
+    else
+        sprintf (ext, "");
+
+    g_snprintf(name, 128, "%s%s.xbm", btnname, ext);
     if (!read_mask(inst, path, name, &btn->unpressed_mask) && normal_mask)
     {
         btn->unpressed_mask = RrPixmapMaskNew(inst, 6, 6, (gchar*)normal_mask);
         userdef = FALSE;
     }
-    g_snprintf(name, 128, "%s_toggled.xbm", btnname);
+    g_snprintf(name, 128, "%s_toggled%s.xbm", btnname, ext);
     if (toggled_mask && !read_mask(inst, path, name, &btn->unpressed_toggled_mask))
     {
         if (userdef)
@@ -1487,7 +1517,7 @@ static void read_button_styles(XrmDatabase db, const RrInstance *inst,
             btn->unpressed_toggled_mask = RrPixmapMaskNew(inst, 6, 6, (gchar*)toggled_mask);
     }
 #define READ_BUTTON_MASK_COPY(type, fallback) \
-    g_snprintf(name, 128, "%s_" #type ".xbm", btnname); \
+    g_snprintf(name, 128, "%s_" #type "%s.xbm", btnname, ext); \
     READ_MASK_COPY(name, btn->type##_mask, fallback);
 
     READ_BUTTON_MASK_COPY(pressed, btn->unpressed_mask);

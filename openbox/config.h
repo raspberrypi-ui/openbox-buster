@@ -152,10 +152,14 @@ extern gchar *config_title_layout;
 extern gboolean config_animate_iconify;
 /*! Size of icons in focus switching dialogs */
 extern guint config_theme_window_list_icon_size;
-/*! Display rounded corners for decorated windows */
-extern gboolean config_theme_roundcorners;
 /*! Extend drag handles outside window borders */
 extern gboolean config_theme_invhandles;
+/*! Size of extended drag handles */
+extern guint config_theme_handlewidth;
+/*! Theme title bar colour override */
+extern gchar *config_theme_title_color;
+/*! Theme text colour override */
+extern gchar *config_theme_text_color;
 
 /*! The font for the active window's title */
 extern RrFont *config_font_activewindow;

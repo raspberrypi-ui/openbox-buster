@@ -17,6 +17,7 @@
    See the COPYING file for a copy of the GNU General Public License.
 */
 
+#include <sys/stat.h>
 #include "debug.h"
 #include "openbox.h"
 #include "session.h"
@@ -113,6 +114,22 @@ static void parse_env();
 static void parse_args(gint *argc, gchar **argv);
 static Cursor load_cursor(const gchar *name, guint fontval);
 static void run_startup_cmd(void);
+
+static int file_test (char *filename)
+{
+    int ret = 0;
+    int handle = open (filename, O_RDONLY);
+    if (handle)
+    {
+        struct stat statbuf;
+        if (fstat (handle, &statbuf) == 0)
+        {
+            if (statbuf.st_size > 0) ret = 1;
+        }
+        close (handle);
+    }
+    return ret;
+}
 
 gint main(gint argc, gchar **argv)
 {
@@ -242,17 +259,47 @@ gint main(gint argc, gchar **argv)
                 config_startup(i);
 
                 /* parse/load user options */
-                if ((config_file &&
-                     obt_xml_load_file(i, config_file, "openbox_config")) ||
-                    obt_xml_load_config_file(i, "openbox", "rc.xml",
-                                             "openbox_config"))
+                gboolean loaded = FALSE;
+                if (config_file)
                 {
-                    obt_xml_tree_from_root(i);
-                    obt_xml_close(i);
+                    // is the config file in XDG_CONFIG_HOME? if so, also load any fallback with the same name in XDG_CONFIG_DIRS[0]
+                    char *hpath = g_build_filename (g_get_user_config_dir (), "openbox", NULL);
+                    char *fpath = g_path_get_dirname (config_file);
+                    if (!g_strcmp0 (hpath, fpath))
+                    {
+                        const gchar * const *config_dirs = g_get_system_config_dirs ();
+                        char *fname = g_path_get_basename (config_file);
+                        char *global_file = g_build_filename (config_dirs[0], "openbox", fname, NULL);
+                        if (file_test (global_file) && obt_xml_load_file (i, global_file, "openbox_config"))
+                        {
+                            obt_xml_tree_from_root (i);
+                            obt_xml_close (i);
+                            loaded = TRUE;
+                        }
+                        g_free (global_file);
+                        g_free (fname);
+                    }
+                    g_free (fpath);
+                    g_free (hpath);
+
+                    if (file_test (config_file) && obt_xml_load_file (i, config_file, "openbox_config"))
+                    {
+                        obt_xml_tree_from_root (i);
+                        obt_xml_close (i);
+                        loaded = TRUE;
+                    }
                 }
-                else {
-                    g_message(_("Unable to find a valid config file, using some simple defaults"));
-                    config_file = NULL;
+                if (!loaded)
+                {
+                    if (obt_xml_load_config_file(i, "openbox", "rc.xml", "openbox_config"))
+                    {
+                        obt_xml_tree_from_root(i);
+                        obt_xml_close(i);
+                    }
+                    else {
+                        g_message(_("Unable to find a valid config file, using some simple defaults"));
+                        config_file = NULL;
+                    }
                 }
 
                 if (config_file) {
@@ -279,6 +326,22 @@ gint main(gint argc, gchar **argv)
 
             /* load the theme specified in the rc file */
             {
+                RrColor *title_color = NULL, *text_color = NULL;
+                if (config_theme_title_color)
+                {
+                    // parse the title colour override from the config file
+                    gint r, g, b;
+                    if (sscanf (config_theme_title_color, "#%02x%02x%02x", &r, &g, &b) == 3)
+                        title_color = RrColorNew(ob_rr_inst, r, g, b);
+                }
+                if (config_theme_text_color)
+                {
+                    // parse the text colour override from the config file
+                    gint r, g, b;
+                    if (sscanf (config_theme_text_color, "#%02x%02x%02x", &r, &g, &b) == 3)
+                        text_color = RrColorNew(ob_rr_inst, r, g, b);
+                }
+
                 RrTheme *theme;
                 if ((theme = RrThemeNew(ob_rr_inst, config_theme, TRUE,
                                         config_font_activewindow,
@@ -289,6 +352,7 @@ gint main(gint argc, gchar **argv)
                                         config_font_inactiveosd)))
                 {
                     RrThemeFree(ob_rr_theme);
+                    RrThemeColOverride (theme, title_color, text_color);
                     ob_rr_theme = theme;
                 }
                 if (ob_rr_theme == NULL)
@@ -296,6 +360,8 @@ gint main(gint argc, gchar **argv)
 
                 OBT_PROP_SETS(obt_root(ob_screen), OB_THEME,
                               ob_rr_theme->name);
+                RrColorFree (title_color);
+                RrColorFree (text_color);
             }
 
             if (reconfigure) {

@@ -45,8 +45,6 @@
 
 #define FRAME_HANDLE_Y(f) (f->size.top + f->client->area.height + f->cbwidth_b)
 
-#define INV_WIDTH 10
-
 static void flash_done(gpointer data);
 static gboolean flash_timeout(gpointer data);
 
@@ -104,6 +102,7 @@ ObFrame *frame_new(ObClient *client)
 
     self = g_slice_new0(ObFrame);
     self->client = client;
+    self->radius = ob_rr_theme->corner_radius;
 
     visual = check_32bit_client(client);
 
@@ -311,8 +310,16 @@ void frame_remove_handles (ObClient *client)
 {
     ObFrame *self = client->frame;
     moving = TRUE;
-    if (config_theme_invhandles)
+    if (config_theme_invhandles && self->invleft)
     {
+        XUnmapWindow (obt_display, self->invleft);
+        XUnmapWindow (obt_display, self->invright);
+        XUnmapWindow (obt_display, self->invtop);
+        XUnmapWindow (obt_display, self->invbottom);
+        XUnmapWindow (obt_display, self->invtl);
+        XUnmapWindow (obt_display, self->invtr);
+        XUnmapWindow (obt_display, self->invbl);
+        XUnmapWindow (obt_display, self->invbr);
         window_remove(self->invleft);
         window_remove(self->invright);
         window_remove(self->invtop);
@@ -329,6 +336,7 @@ void frame_remove_handles (ObClient *client)
         XDestroyWindow(obt_display, self->invtl);
         XDestroyWindow(obt_display, self->invbl);
         XDestroyWindow(obt_display, self->invbr);
+        self->invleft = 0;
     }
 }
 
@@ -345,7 +353,7 @@ void frame_restore_handles (ObClient *client)
         !(self->client->max_horz && self->client->max_vert);
 
     moving = FALSE;
-    if (config_theme_invhandles)
+    if (config_theme_invhandles && self->invleft == 0)
     {
         if (visual)
         {
@@ -360,35 +368,35 @@ void frame_restore_handles (ObClient *client)
         attrib.event_mask = ELEMENT_EVENTMASK;
 
         self->invleft = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x - INV_WIDTH, self->area.y, INV_WIDTH, self->area.height, 0,
+            self->area.x - config_theme_handlewidth, self->area.y, config_theme_handlewidth, self->area.height, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invright = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x + self->area.width, self->area.y, INV_WIDTH, self->area.height, 0,
+            self->area.x + self->area.width, self->area.y, config_theme_handlewidth, self->area.height, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invtop = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x, self->area.y - INV_WIDTH, self->area.width, INV_WIDTH, 0,
+            self->area.x, self->area.y - config_theme_handlewidth, self->area.width, config_theme_handlewidth, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invbottom = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x, self->area.y + self->area.height, self->area.width, INV_WIDTH, 0,
+            self->area.x, self->area.y + self->area.height, self->area.width, config_theme_handlewidth, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invtl = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x - INV_WIDTH, self->area.y - INV_WIDTH, INV_WIDTH, INV_WIDTH, 0,
+            self->area.x - config_theme_handlewidth, self->area.y - config_theme_handlewidth, config_theme_handlewidth, config_theme_handlewidth, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invtr = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x + self->area.width, self->area.y - INV_WIDTH, INV_WIDTH, INV_WIDTH, 0,
+            self->area.x + self->area.width, self->area.y - config_theme_handlewidth, config_theme_handlewidth, config_theme_handlewidth, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invbl = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x - INV_WIDTH, self->area.y + self->area.height, INV_WIDTH, INV_WIDTH, 0,
+            self->area.x - config_theme_handlewidth, self->area.y + self->area.height, config_theme_handlewidth, config_theme_handlewidth, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         self->invbr = XCreateWindow (obt_display, obt_root(ob_screen),
-            self->area.x + self->area.width, self->area.y + self->area.height, INV_WIDTH, INV_WIDTH, 0,
+            self->area.x + self->area.width, self->area.y + self->area.height, config_theme_handlewidth, config_theme_handlewidth, 0,
             CopyFromParent, InputOnly, CopyFromParent, mask, &attrib);
 
         window_add(&self->invleft, CLIENT_AS_WINDOW(self->client));
@@ -454,6 +462,7 @@ void frame_hide(ObFrame *self)
            events, and because the ICCCM tells us to! */
         XUnmapWindow(obt_display, self->client->window);
         self->client->ignore_unmaps += 1;
+        frame_remove_handles (self->client);
     }
 }
 
@@ -568,7 +577,7 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
         self->width = MAX(self->width,
                           (ob_rr_theme->grip_width + self->bwidth) * 2 + 1);
 
-        if (self->decorations & OB_FRAME_DECOR_TITLEBAR && config_theme_roundcorners)
+        if (self->decorations & OB_FRAME_DECOR_TITLEBAR && self->radius)
             self->outer = 2;
         else
             self->outer = 0;
@@ -1017,73 +1026,73 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
                 int wh = th + eh + self->outer * 2;
 
                 XMoveResizeWindow (obt_display, self->edgetop,
-                                  th,
+                                  th + self->outer,
                                   0,
-                                  ww - (th * 2),
+                                  ww - (th + self->outer) * 2,
                                   1);
                 XMapWindow (obt_display, self->edgetop);
 
                 XMoveResizeWindow (obt_display, self->edgetopleft,
+                                  self->radius * 2,
                                   0,
-                                  0,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   1);
                 XMapWindow (obt_display, self->edgetopleft);
 
                 XMoveResizeWindow (obt_display, self->edgetopright,
-                                  ww - th,
+                                  ww - th - self->outer,
                                   0,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   1);
                 XMapWindow (obt_display, self->edgetopright);
 
                 XMoveResizeWindow (obt_display, self->outertop,
-                                  th,
+                                  th + self->outer,
                                   1,
-                                  ww - (th * 2),
+                                  ww - (th + self->outer) * 2,
                                   self->outer - 1);
                 XMapWindow (obt_display, self->outertop);
 
                 XMoveResizeWindow (obt_display, self->outertopleft,
-                                  0,
+                                  self->radius * 2,
                                   1,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   self->outer - 1);
                 XMapWindow (obt_display, self->outertopleft);
 
                 XMoveResizeWindow (obt_display, self->outertopright,
-                                  ww - th,
+                                  ww - th - self->outer,
                                   1,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   self->outer - 1);
                 XMapWindow (obt_display, self->outertopright);
 
                 XMoveResizeWindow (obt_display, self->edgelefttop,
                                   0,
-                                  self->outer,
+                                  self->radius * 2,
                                   1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->edgelefttop);
 
                 XMoveResizeWindow (obt_display, self->outerlefttop,
                                   1,
-                                  self->outer,
+                                  self->radius * 2,
                                   self->outer - 1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->outerlefttop);
 
                 XMoveResizeWindow (obt_display, self->edgerighttop,
                                   ww - 1,
-                                  self->outer,
+                                  self->radius * 2,
                                   1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->edgerighttop);
 
                 XMoveResizeWindow (obt_display, self->outerrighttop,
                                   ww - self->outer,
-                                  self->outer,
+                                  self->radius * 2,
                                   self->outer - 1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->outerrighttop);
 
                 XMoveResizeWindow (obt_display, self->edgeleft,
@@ -1097,7 +1106,7 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
                                   0,
                                   eh + self->outer,
                                   1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->edgeleftbottom);
 
                 XMoveResizeWindow (obt_display, self->outerleft,
@@ -1111,7 +1120,7 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
                                   1,
                                   eh + self->outer,
                                   self->outer - 1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->outerleftbottom);
 
                 XMoveResizeWindow (obt_display, self->edgeright,
@@ -1125,7 +1134,7 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
                                   ww - 1,
                                   eh + self->outer,
                                   1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->edgerightbottom);
 
                 XMoveResizeWindow (obt_display, self->outerright,
@@ -1139,105 +1148,105 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
                                   ww - self->outer,
                                   eh + self->outer,
                                   self->outer - 1,
-                                  th);
+                                  th + self->outer - self->radius * 2);
                 XMapWindow (obt_display, self->outerrightbottom);
 
                 XMoveResizeWindow (obt_display, self->edgebottom,
-                                  th,
+                                  th + self->outer,
                                   wh - 1,
-                                  ww - (th * 2),
+                                  ww - (th + self->outer) * 2,
                                   1);
                 XMapWindow (obt_display, self->edgebottom);
 
                 XMoveResizeWindow (obt_display, self->edgebottomleft,
-                                  0,
+                                  self->radius * 2,
                                   wh - 1,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   1);
                 XMapWindow (obt_display, self->edgebottomleft);
 
                 XMoveResizeWindow (obt_display, self->edgebottomright,
-                                  ww - th,
+                                  ww - th - self->outer,
                                   wh - 1,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   1);
                 XMapWindow (obt_display, self->edgebottomright);
 
                 XMoveResizeWindow (obt_display, self->outerbottom,
-                                  th,
+                                  th + self->outer,
                                   wh - self->outer,
-                                  ww - (th * 2),
+                                  ww - (th + self->outer) * 2,
                                   self->outer - 1);
                 XMapWindow (obt_display, self->outerbottom);
 
                 XMoveResizeWindow (obt_display, self->outerbottomleft,
-                                  0,
+                                  self->radius * 2,
                                   wh - self->outer,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   self->outer - 1);
                 XMapWindow (obt_display, self->outerbottomleft);
 
                 XMoveResizeWindow (obt_display, self->outerbottomright,
-                                  ww - th,
+                                  ww - th - self->outer,
                                   wh - self->outer,
-                                  th,
+                                  th + self->outer - self->radius * 2,
                                   self->outer - 1);
                 XMapWindow (obt_display, self->outerbottomright);
 
                 XMoveResizeWindow (obt_display, self->ce_tl_t,
-                                  2,
+                                  self->radius,
                                   1,
-                                  2,
+                                  self->radius,
                                   1);
                 XMapWindow (obt_display, self->ce_tl_t);
 
                 XMoveResizeWindow (obt_display, self->ce_tl_l,
                                   1,
-                                  2,
+                                  self->radius,
                                   1,
-                                  2);
+                                  self->radius);
                 XMapWindow (obt_display, self->ce_tl_l);
 
                 XMoveResizeWindow (obt_display, self->ce_tr_t,
-                                  ww - 4,
+                                  ww - (2 * self->radius),
                                   1,
-                                  2,
+                                  self->radius,
                                   1);
                 XMapWindow (obt_display, self->ce_tr_t);
 
                 XMoveResizeWindow (obt_display, self->ce_tr_r,
                                   ww - 2,
-                                  2,
+                                  self->radius,
                                   1,
-                                  2);
+                                  self->radius);
                 XMapWindow (obt_display, self->ce_tr_r);
 
                 XMoveResizeWindow (obt_display, self->ce_bl_b,
-                                  2,
+                                  self->radius,
                                   wh - 2,
-                                  2,
+                                  self->radius,
                                   1);
                 XMapWindow (obt_display, self->ce_bl_b);
 
                 XMoveResizeWindow (obt_display, self->ce_bl_l,
                                   1,
-                                  wh - 4,
+                                  wh - (2 * self->radius),
                                   1,
-                                  2);
+                                  self->radius);
                 XMapWindow (obt_display, self->ce_bl_l);
 
                 XMoveResizeWindow (obt_display, self->ce_br_b,
-                                  ww - 4,
+                                  ww - (2 * self->radius),
                                   wh - 2,
-                                  2,
+                                  self->radius,
                                   1);
                 XMapWindow (obt_display, self->ce_br_b);
 
                 XMoveResizeWindow (obt_display, self->ce_br_r,
                                   ww - 2,
-                                  wh - 4,
+                                  wh - (2 * self->radius),
                                   1,
-                                  2);
+                                  self->radius);
                 XMapWindow (obt_display, self->ce_br_r);
 
            }
@@ -1305,59 +1314,59 @@ void frame_adjust_area(ObFrame *self, gboolean moved,
     if (config_theme_invhandles && !moving)
     {
         XMoveResizeWindow(obt_display, self->invleft,
-          self->area.x - INV_WIDTH,
+          self->area.x - config_theme_invhandles,
           self->area.y,
-          INV_WIDTH,
+          config_theme_handlewidth,
           self->area.height);
         XMapWindow (obt_display, self->invleft);
 
         XMoveResizeWindow(obt_display, self->invright,
           self->area.x + self->area.width,
           self->area.y,
-          INV_WIDTH,
+          config_theme_handlewidth,
           self->area.height);
         XMapWindow (obt_display, self->invright);
 
         XMoveResizeWindow(obt_display, self->invtop,
           self->area.x,
-          self->area.y - INV_WIDTH,
+          self->area.y - config_theme_handlewidth,
           self->area.width,
-          INV_WIDTH);
+          config_theme_handlewidth);
         XMapWindow (obt_display, self->invtop);
 
         XMoveResizeWindow(obt_display, self->invbottom,
           self->area.x,
           self->area.y + self->area.height,
           self->area.width,
-          INV_WIDTH);
+          config_theme_handlewidth);
         XMapWindow (obt_display, self->invbottom);
 
         XMoveResizeWindow(obt_display, self->invtl,
-          self->area.x - INV_WIDTH,
-          self->area.y - INV_WIDTH,
-          INV_WIDTH,
-          INV_WIDTH);
+          self->area.x - config_theme_handlewidth,
+          self->area.y - config_theme_handlewidth,
+          config_theme_handlewidth,
+          config_theme_handlewidth);
         XMapWindow (obt_display, self->invtl);
 
         XMoveResizeWindow(obt_display, self->invtr,
           self->area.x + self->area.width,
-          self->area.y - INV_WIDTH,
-          INV_WIDTH,
-          INV_WIDTH);
+          self->area.y - config_theme_handlewidth,
+          config_theme_handlewidth,
+          config_theme_handlewidth);
         XMapWindow (obt_display, self->invtr);
 
         XMoveResizeWindow(obt_display, self->invbl,
-          self->area.x - INV_WIDTH,
+          self->area.x - config_theme_handlewidth,
           self->area.y + self->area.height,
-          INV_WIDTH,
-          INV_WIDTH);
+          config_theme_handlewidth,
+          config_theme_handlewidth);
         XMapWindow (obt_display, self->invbl);
 
         XMoveResizeWindow(obt_display, self->invbr,
           self->area.x + self->area.width,
           self->area.y + self->area.height,
-          INV_WIDTH,
-          INV_WIDTH);
+          config_theme_handlewidth,
+          config_theme_handlewidth);
         XMapWindow (obt_display, self->invbr);
     }
 
@@ -1543,31 +1552,6 @@ void frame_adjust_focus(ObFrame *self, gboolean hilite)
     self->focused = hilite;
     self->need_render = TRUE;
     framerender_frame(self);
-    if (config_theme_invhandles)
-    {
-        if (self->focused)
-        {
-            XMapWindow (obt_display, self->invleft);
-            XMapWindow (obt_display, self->invright);
-            XMapWindow (obt_display, self->invtop);
-            XMapWindow (obt_display, self->invbottom);
-            XMapWindow (obt_display, self->invtl);
-            XMapWindow (obt_display, self->invtr);
-            XMapWindow (obt_display, self->invbl);
-            XMapWindow (obt_display, self->invbr);
-        }
-        else
-        {
-            XUnmapWindow (obt_display, self->invleft);
-            XUnmapWindow (obt_display, self->invright);
-            XUnmapWindow (obt_display, self->invtop);
-            XUnmapWindow (obt_display, self->invbottom);
-            XUnmapWindow (obt_display, self->invtl);
-            XUnmapWindow (obt_display, self->invtr);
-            XUnmapWindow (obt_display, self->invbl);
-            XUnmapWindow (obt_display, self->invbr);
-        }
-    }
     XFlush(obt_display);
 }
 
