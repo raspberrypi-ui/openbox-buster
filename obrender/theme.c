@@ -1524,9 +1524,9 @@ static void read_button_styles(XrmDatabase db, const RrInstance *inst,
     READ_BUTTON_MASK_COPY(disabled, btn->unpressed_mask);
     READ_BUTTON_MASK_COPY(hover, btn->unpressed_mask);
     if (toggled_mask) {
-        g_snprintf(name, 128, "%s_toggled_pressed.xbm", btnname);
+        g_snprintf(name, 128, "%s_toggled_pressed%s.xbm", btnname, ext);
         READ_MASK_COPY(name, btn->pressed_toggled_mask, btn->unpressed_toggled_mask);
-        g_snprintf(name, 128, "%s_toggled_hover.xbm", btnname);
+        g_snprintf(name, 128, "%s_toggled_hover%s.xbm", btnname, ext);
         READ_MASK_COPY(name, btn->hover_toggled_mask, btn->unpressed_toggled_mask);
     }
 
