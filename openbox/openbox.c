@@ -343,6 +343,7 @@ gint main(gint argc, gchar **argv)
                 }
 
                 RrTheme *theme;
+                RrThemeColOverride (title_color, text_color);
                 if ((theme = RrThemeNew(ob_rr_inst, config_theme, TRUE,
                                         config_font_activewindow,
                                         config_font_inactivewindow,
@@ -352,7 +353,6 @@ gint main(gint argc, gchar **argv)
                                         config_font_inactiveosd)))
                 {
                     RrThemeFree(ob_rr_theme);
-                    RrThemeColOverride (theme, title_color, text_color);
                     ob_rr_theme = theme;
                 }
                 if (ob_rr_theme == NULL)

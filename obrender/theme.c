@@ -31,6 +31,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Messy use of globals for colour overrides, but the cascading use of colours loaded from
+ * the theme as defaults for values loaded later leaves me little choice. Bleagh. */
+RrColor *title_color, *text_color;
+
 struct fallbacks {
     RrAppearance *focused_disabled;
     RrAppearance *unfocused_disabled;
@@ -125,6 +129,20 @@ static RrFont *get_font(RrFont *target, RrFont **default_font,
         !read_appearance(db, inst, x_res2, x_var, x_parrel)) {\
         RrAppearanceFree(x_var); \
         x_var = RrAppearanceCopy(x_defval); }
+
+#define OVERRIDE_COLOR(target,override) \
+    if (theme->name && !strncmp (theme->name, "PiX", 3) && override) { \
+        RrColorFree (target); \
+        target = RrColorCopy (override); }
+
+
+void RrThemeColOverride (RrColor *title_col, RrColor *text_col)
+{
+    if (text_col) text_color = RrColorCopy (text_col);
+    else text_color = NULL;
+    if (title_col) title_color = RrColorCopy (title_col);
+    else title_color = NULL;
+}
 
 RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
                     gboolean allow_fallback,
@@ -316,6 +334,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_COLOR("window.active.label.text.color",
                theme->title_focused_color,
                RrColorNew(inst, 0x0, 0x0, 0x0));
+    OVERRIDE_COLOR(theme->title_focused_color,text_color);
 
     READ_COLOR("window.inactive.label.text.color",
                theme->title_unfocused_color,
@@ -334,6 +353,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_COLOR("window.active.button.unpressed.image.color",
                theme->titlebut_focused_unpressed_color,
                RrColorNew(inst, 0, 0, 0));
+    OVERRIDE_COLOR(theme->titlebut_focused_unpressed_color,text_color);
 
     READ_COLOR("window.inactive.button.unpressed.image.color",
                theme->titlebut_unfocused_unpressed_color,
@@ -342,6 +362,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_COLOR("window.active.button.pressed.image.color",
                theme->titlebut_focused_pressed_color,
                RrColorCopy(theme->titlebut_focused_unpressed_color));
+    OVERRIDE_COLOR(theme->titlebut_focused_pressed_color,text_color);
 
     READ_COLOR("window.inactive.button.pressed.image.color",
                theme->titlebut_unfocused_pressed_color,
@@ -358,6 +379,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_COLOR("window.active.button.hover.image.color",
                theme->titlebut_focused_hover_color,
                RrColorCopy(theme->titlebut_focused_unpressed_color));
+    OVERRIDE_COLOR(theme->titlebut_focused_hover_color,text_color);
 
     READ_COLOR("window.inactive.button.hover.image.color",
                theme->titlebut_unfocused_hover_color,
@@ -367,6 +389,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
                 "window.active.button.toggled.image.color",
                 theme->titlebut_focused_unpressed_toggled_color,
                 RrColorCopy(theme->titlebut_focused_pressed_color));
+    OVERRIDE_COLOR(theme->titlebut_focused_unpressed_toggled_color,text_color);
 
     READ_COLOR_("window.inactive.button.toggled.unpressed.image.color",
                 "window.inactive.button.toggled.image.color",
@@ -376,6 +399,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_COLOR("window.active.button.toggled.hover.image.color",
                theme->titlebut_focused_hover_toggled_color,
                RrColorCopy(theme->titlebut_focused_unpressed_toggled_color));
+    OVERRIDE_COLOR(theme->titlebut_focused_hover_toggled_color,text_color);
 
     READ_COLOR("window.inactive.button.toggled.hover.image.color",
                theme->titlebut_unfocused_hover_toggled_color,
@@ -384,6 +408,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     READ_COLOR("window.active.button.toggled.pressed.image.color",
                theme->titlebut_focused_pressed_toggled_color,
                RrColorCopy(theme->titlebut_focused_pressed_color));
+    OVERRIDE_COLOR(theme->titlebut_focused_pressed_toggled_color,text_color);
 
     READ_COLOR("window.inactive.button.toggled.pressed.image.color",
                theme->titlebut_unfocused_pressed_toggled_color,
@@ -547,6 +572,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
 
     /* read the decoration textures */
     READ_APPEARANCE("window.active.title.bg", theme->a_focused_title, FALSE);
+    OVERRIDE_COLOR(theme->a_focused_title->surface.primary,title_color);
     READ_APPEARANCE("window.inactive.title.bg", theme->a_unfocused_title, FALSE);
     READ_APPEARANCE("window.active.label.bg", theme->a_focused_label, TRUE);
     READ_APPEARANCE("window.inactive.label.bg", theme->a_unfocused_label, TRUE);
@@ -1002,23 +1028,6 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *name,
     RrAppearanceFree(fbs.unfocused_pressed_toggled);
 
     return theme;
-}
-
-void RrThemeColOverride (RrTheme *theme, RrColor *title_color, RrColor *text_color)
-{
-    if (theme->name && !strncmp (theme->name, "PiX", 3))
-    {
-        if (text_color)
-        {
-            RrColorFree (theme->title_focused_color);
-            theme->title_focused_color = RrColorCopy (text_color);
-        }
-        if (title_color)
-        {
-            RrColorFree (theme->a_focused_title->surface.primary);
-            theme->a_focused_title->surface.primary = RrColorCopy (title_color);
-        }
-    }
 }
 
 void RrThemeFree(RrTheme *theme)

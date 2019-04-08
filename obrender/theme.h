@@ -184,7 +184,7 @@ RrTheme* RrThemeNew(const RrInstance *inst, const gchar *theme,
                     RrFont *active_window_font, RrFont *inactive_window_font,
                     RrFont *menu_title_font, RrFont *menu_item_font,
                     RrFont *active_osd_font, RrFont *inactive_osd_font);
-void RrThemeColOverride (RrTheme *theme, RrColor *title_color, RrColor *text_color);
+void RrThemeColOverride (RrColor *title_color, RrColor *text_color);
 void RrThemeFree(RrTheme *theme);
 
 G_END_DECLS
