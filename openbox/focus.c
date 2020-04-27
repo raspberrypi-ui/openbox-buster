@@ -191,7 +191,7 @@ ObClient* focus_fallback(gboolean allow_refocus, gboolean allow_pointer,
     return new;
 }
 
-void focus_desktop (void)
+static gboolean focus_desktop (void)
 {
     GList *it;
     ObClient *c;
@@ -203,18 +203,15 @@ void focus_desktop (void)
         {
             ob_debug_type (OB_DEBUG_FOCUS, "focus_nothing to desktop");
             focus_set_client (c);
-            return;
+            return TRUE;
         }
     }
+    return FALSE;
 }
 
 void focus_nothing(void)
 {
-    if (config_focus_desktop)
-    {
-        focus_desktop ();
-        return;
-    }
+    if (config_focus_desktop && focus_desktop ()) return;
 
     /* nothing is focused, update the colormap and _the root property_ */
     focus_set_client(NULL);
