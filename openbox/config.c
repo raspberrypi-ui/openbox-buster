@@ -35,6 +35,7 @@ gboolean config_focus_raise;
 gboolean config_focus_last;
 gboolean config_focus_under_mouse;
 gboolean config_unfocus_leave;
+gboolean config_focus_desktop;
 
 ObPlacePolicy  config_place_policy;
 gboolean       config_place_center;
@@ -639,6 +640,8 @@ static void parse_focus(xmlNodePtr node, gpointer d)
         config_focus_under_mouse = obt_xml_node_bool(n);
     if ((n = obt_xml_find_node(node, "unfocusOnLeave")))
         config_unfocus_leave = obt_xml_node_bool(n);
+    if ((n = obt_xml_find_node(node, "focusDesktop")))
+        config_focus_desktop = obt_xml_node_bool(n);
 }
 
 static void parse_placement(xmlNodePtr node, gpointer d)
@@ -1095,6 +1098,7 @@ void config_startup(ObtXmlInst *i)
     config_focus_last = TRUE;
     config_focus_under_mouse = FALSE;
     config_unfocus_leave = FALSE;
+    config_focus_desktop = FALSE;
 
     obt_xml_register(i, "focus", parse_focus, NULL);
 
